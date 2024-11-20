@@ -27,7 +27,11 @@
 #include "client.h"
 
 Room::Room() : name(""), clients() {}
-Room::Room(std::string name) : name(name), clients() {}
+Room::Room(std::string name){//} : name(name), clients() {}
+    this->name = name;
+    this->clients = std::vector<Client *>();
+    this->is_room_game_running = false;
+}
 Room::Room(std::string name, std::vector<Client *> clients) : name(name), clients(clients) {}
 Room::~Room() {}
 Room::Room(const Room &other) : name(other.name), clients(other.clients) {}
@@ -42,4 +46,13 @@ Room& Room::operator=(const Room& other) {
 int Room::add_player(Client *client) {
     clients.push_back(client);
     return 1;
+}
+int Room::remove_player(Client *client) {
+    for (std::vector<Client *>::iterator it = clients.begin(); it != clients.end(); ++it) {
+        if (*it == client) {
+            clients.erase(it);
+            return 1;
+        }
+    }
+    return 0;
 }

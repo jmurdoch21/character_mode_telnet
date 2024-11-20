@@ -21,14 +21,14 @@ void Database::init_db(sqlite3 *&db) {
         exit(1);
     }
 
-    const char *sql = "CREATE TABLE IF NOT EXISTS players ("
-                      "id INTEGER PRIMARY KEY, "
-                      "username TEXT UNIQUE, "
-                      "hashed_password TEXT, "
-                      "num_wins INTEGER, "
-                      "wins_as_werewolf INTEGER, "
-                      "games_played INTEGER, "
-                      "games_as_werewolf INTEGER);";
+    const char *sql =   "CREATE TABLE IF NOT EXISTS players ("
+                        "id INTEGER PRIMARY KEY, "
+                        "username TEXT UNIQUE, "
+                        "hashed_password TEXT, "
+                        "num_wins INTEGER DEFAULT 0, "
+                        "wins_as_werewolf INTEGER DEFAULT 0, "
+                        "games_played INTEGER DEFAULT 0, "
+                        "games_as_werewolf INTEGER DEFAULT 0);";
 
     char *err_msg = nullptr;
     rc = sqlite3_exec(db, sql, nullptr, nullptr, &err_msg);
@@ -49,7 +49,7 @@ bool Database::insert_user(sqlite3* db, const std::string& username, const std::
     }
 
     std::string hashed_password = hash_password(password);
-    std::string sql = "INSERT INTO players(username, hashed_password) VALUES(?, ?);";
+    std::string sql = "INSERT INTO players(username, hashed_password, num_wins, wins_as_werewolf, games_played, games_as_werewolf) VALUES(?, ?, 0, 0, 0, 0);";
     sqlite3_stmt *stmt;
     
     // Add error checking for prepare
@@ -135,11 +135,18 @@ bool Database::increment_wins_as_werewolf(sqlite3* db, const std::string& userna
 bool Database::increment_games_played(sqlite3* db, const std::string& username) {
     std::string sql = "UPDATE players SET games_played = games_played + 1 WHERE username = '" + username + "';";
     char *err_msg = nullptr;
+    std::cout << "Executing SQL: " << sql << std::endl;
+
     int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &err_msg);
     if (rc != SQLITE_OK) {
         sqlite3_free(err_msg);
         return false;  // SQL error
     }
+    int after_count = Database::get_games_played(db, username);
+    std::cout << "Games played after update: " << after_count << std::endl;
+    int changes = sqlite3_changes(db);
+    std::cout << "Rows affected: " << changes << std::endl;
+
     return true;
 }
 bool Database::increment_games_as_werewolf(sqlite3* db, const std::string& username) {

@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <algorithm>
+#include <mutex>
 #include "server.h"
 #include "client_terminal.h"
 #include "database.h"
@@ -16,6 +17,7 @@
 sqlite3 *db;
 Game werewolf_game;
 std::vector<Room *> rooms;
+std::mutex server_mutex;
 
 // Function to enable character mode (and suppress go-ahead)
 void Server::enableCharacterMode(int client_socket) {
@@ -265,6 +267,7 @@ for(size_t i = 0; i < password.length(); i++) {
             if (authenticate_player(client->username, password)) {
                 send_message(client->socket, "Login successful.\n");
                 signed_in = true;
+                //Database::increment_games_played(db, client->username);
                 return true;
             } else {
                 send_message(client->socket, "Login failed.\n");
@@ -289,7 +292,7 @@ void Server::handle_client(Client *client) {
         switch (selected_option) {
             case GameMenu::HOST_GAME:
                 std::cout << "Host game selected" << std::endl;
-                werewolf_game.host_game(client, rooms);
+                werewolf_game.host_game(client, rooms, db);
                 break;
             case GameMenu::JOIN_GAME:
                 std::cout << "Join game selected" << std::endl;
@@ -315,7 +318,7 @@ void Server::handle_client(Client *client) {
     close(client->socket);
     delete client;
     std::cout << "Client disconnected" << std::endl;
-    
+
 }
 
 int main() {

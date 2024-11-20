@@ -33,11 +33,14 @@
 #define ROOM_H
 #include <string>
 #include <vector>
+#include <mutex>
 #include "client.h"
 class Room {
     public:
+    std::mutex room_mutex;
     std::string name;
     std::vector<Client *> clients;
+    bool is_room_game_running;
 
     Room();
     ~Room();
@@ -47,5 +50,6 @@ class Room {
     Room(std::string name, std::vector<Client *> clients);
 
     int add_player(Client *client);
+    int remove_player(Client *client);
 };
 #endif
