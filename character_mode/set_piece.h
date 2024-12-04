@@ -48,6 +48,8 @@ class SetPiece {
 
         std::vector<std::string>& getImage() { return image; }
         void setImage(std::vector<std::string>& image) { this->image = image; }
+        void setBold(bool is_bold) { this->is_bold = is_bold; }
+        void setColor(AnsiColor new_color) { this->color = new_color; }
 
         void move(float dx, float dy) {
             bounding_box.move(dx, dy);

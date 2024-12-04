@@ -57,7 +57,16 @@ void Server::receive_line(int client_socket, std::string& user_input, bool echo_
 
 
     while(in_line){
-            recv(client_socket, &c, 1, 0);
+            ssize_t bytes_received = recv(client_socket, &c, 1, 0);
+            if (bytes_received <=0) {
+            if (bytes_received == 0) {
+                // Client disconnected cleanly
+                throw std::runtime_error("Client disconnected");
+            } else {
+                // Error occurred
+                throw std::runtime_error("Connection error");
+            }
+        }
             if(c == '\0'){
                 std::cout << "Received null byte" << std::endl;
                 continue;
@@ -280,39 +289,47 @@ for(size_t i = 0; i < password.length(); i++) {
 
 // Function to handle a client connection
 void Server::handle_client(Client *client) {
-    Server::enableCharacterMode(client->socket);
-    std::string message;
-    //bool signed_in = false;
-    Server::sign_in(client);
-    bool exit_game = false;
-    while(!exit_game){
-        int menu_selection = werewolf_game.select_from_menu(client->socket);
+    try{
+        Server::enableCharacterMode(client->socket);
+        std::string message;
+        //bool signed_in = false;
+        Server::sign_in(client);
+        bool exit_game = false;
+        while(!exit_game){
+            int menu_selection = werewolf_game.select_from_menu(client->socket);
 
-        GameMenu selected_option = static_cast<GameMenu>(menu_selection);
-        switch (selected_option) {
-            case GameMenu::HOST_GAME:
-                std::cout << "Host game selected" << std::endl;
-                werewolf_game.host_game(client, rooms, db);
-                break;
-            case GameMenu::JOIN_GAME:
-                std::cout << "Join game selected" << std::endl;
-                werewolf_game.join_game(client, rooms);
-                break;
-            case GameMenu::RULES:
-                std::cout << "Rules selected" << std::endl;
-                werewolf_game.rules(client->socket);
-                break;
-            case GameMenu::STATS:
-                std::cout << "Stats selected" << std::endl;
-                werewolf_game.stats(db, client->socket, client->username);
-                break;
-            case GameMenu::EXIT:
-                exit_game = true;
-                break;
-            default:
-                std::cout << "Invalid option selected" << std::endl;
-                break;
+            GameMenu selected_option = static_cast<GameMenu>(menu_selection);
+            switch (selected_option) {
+                case GameMenu::HOST_GAME:
+                    std::cout << "Host game selected" << std::endl;
+                    werewolf_game.host_game(client, rooms, db);
+                    break;
+                case GameMenu::JOIN_GAME:
+                    std::cout << "Join game selected" << std::endl;
+                    werewolf_game.join_game(client, rooms);
+                    break;
+                case GameMenu::RULES:
+                    std::cout << "Rules selected" << std::endl;
+                    werewolf_game.rules(client->socket);
+                    break;
+                case GameMenu::STATS:
+                    std::cout << "Stats selected" << std::endl;
+                    werewolf_game.stats(db, client->socket, client->username);
+                    break;
+                case GameMenu::EXIT:
+                    exit_game = true;
+                    break;
+                default:
+                    std::cout << "Invalid option selected" << std::endl;
+                    break;
+            }
         }
+    }
+    catch (const std::runtime_error& e) {
+        std::cout << "Client " << client->socket << " disconnected: " << e.what() << std::endl;
+    }
+    catch (...) {
+        std::cout << "Unexpected error handling client " << client->socket << std::endl;
     }
     // Close the client socket
     close(client->socket);

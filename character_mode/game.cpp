@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <algorithm>
+#include <thread>
 #include "client_terminal.h"
 #include "ansi_commands.h"
 #include "game.h"
@@ -114,7 +115,6 @@ int Game::select_from_menu(int client_socket) {
     bool running = true;
     char key = 0;
     char buffer;
-    int bytes_read;
     while (running) {
         draw_menu(client_socket, selected_row);
         //while(!Terminal::key_available()){};
@@ -147,6 +147,94 @@ int Game::select_from_menu(int client_socket) {
     }
     Client_terminal::clear_screen(client_socket);
     return selected_row;
+}
+//function to select target
+int Game::select_target(int client_socket, int player_index) {
+    int selected_target = 0;
+    bool running = true;
+    char key = 0;
+    char buffer;
+    int terminal_width, terminal_height;
+    Client_terminal::get_terminal_size(terminal_width, terminal_height);
+    SetPiece pointer = SetPiece(pointer_art);
+    while (running) {
+        Client_terminal::clear_screen(client_socket);
+        //draw the houses
+        int counter = 0;
+        bool is_pointer_on_piece = false;
+        for(auto piece : player_pieces){
+            if(piece->getBoundingBox().contains(pointer.getBoundingBox().getXMax(), pointer.getBoundingBox().getYMin())){
+                piece->setBold(true);
+                piece->setColor(AnsiColor::RED);
+                piece->draw(client_socket);
+                selected_target = counter;
+                is_pointer_on_piece = true;
+                std::cout << "Pointer on " << live_clients[selected_target]->username << std::endl;
+            }
+            else{
+                piece->setBold(false);
+                piece->draw(client_socket);
+            }
+            counter ++;
+            //Client_terminal::draw(client_socket, piece);
+        }
+        pointer.draw(client_socket);
+        counter = 0;
+        int bytes_read = recv(client_socket, &buffer, 1, 0);
+        if (bytes_read > 0) {
+            key = buffer;
+            if (key == '\n' || key == '\r') {
+                key = 10;  // Convert to the expected enter key value
+            }
+        }
+        else{
+            throw std::runtime_error("Error receiving key");
+        }
+        std::cout << "key: " << key << std::endl;
+        switch (key) {
+            case static_cast<char>(Keys::UP_ARROW):
+            case 'w':
+                if(pointer.getBoundingBox().getYMin()-1 > 0){
+                    pointer.set_position(pointer.getBoundingBox().getXMin(), pointer.getBoundingBox().getYMin()-1);
+                }               
+                break;
+            case static_cast<char>(Keys::DOWN_ARROW):
+            case 's':
+                if(pointer.getBoundingBox().getYMax()+1 < terminal_height){
+                    pointer.set_position(pointer.getBoundingBox().getXMin(), pointer.getBoundingBox().getYMin()+1);
+                }
+                break;
+            case static_cast<char>(Keys::LEFT_ARROW):
+            case 'a':
+                if(pointer.getBoundingBox().getXMin()-1 > 0){
+                    pointer.set_position(pointer.getBoundingBox().getXMin()-1, pointer.getBoundingBox().getYMin());
+                }
+                break;
+            case static_cast<char>(Keys::RIGHT_ARROW):
+            case 'd':
+                if(pointer.getBoundingBox().getXMax()+1 < terminal_width){
+                    pointer.set_position(pointer.getBoundingBox().getXMin()+1, pointer.getBoundingBox().getYMin());
+                }
+                break;
+            case 10: // Enter key
+                if(is_pointer_on_piece){
+                    if(live_clients[selected_target]->username == live_clients[player_index]->username){
+                        Client_terminal::move_cursor(client_socket, 1, 1);
+                        std::string msg = "Cannot select self as target";
+                        Server::send_message(client_socket, msg);
+                    }
+                    else{
+                        running = false;
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+        //std::cout << "Selected row: " << selected_row << std::endl;
+    }
+    Client_terminal::clear_screen(client_socket);
+    return selected_target;
 }
 
 void Game::rules(int client_socket) {
@@ -213,19 +301,59 @@ void Game::stats(sqlite3* db, int client_socket, const std::string& username) {
     }
 }
 
+// thread to receive chat messages in a loop during the discussion phase
+// void Game::chat(int client_socket, Room * room) {
+//     std::string message;
+//     while (true) {
+//         Server::receive_line(client_socket, message, ECHO_ON);
+//         std::cout << "Received message: " << message << std::endl;
+//         // Broadcast the message to all clients in the room
+//         for(Client *client : room->clients) {
+//             send(client->socket, message.c_str(), message.size(), 0);
+//         }
+//         // Clear the message buffer
+//         message.clear();
+//     }
+// }
+
 void Game::start_game(Room * room, sqlite3* db) {
     // Implementation needed
     std::cout << "Starting game..." << std::endl;
     // Add your game logic here
     std::string message = "Game started!\n";
+    int counter = 1;
+    is_alive = (bool*)malloc(sizeof(bool) * room->clients.size());
     for (Client *client : room->clients) {
         send(client->socket, message.c_str(), message.size(), 0);
         live_clients.push_back(client);
+        game_clients.push_back(client);
+        is_alive[counter-1] = true;
+        SetPiece* piece = new SetPiece(live_house_art);
+        int terminal_height, terminal_width;
+        Client_terminal::get_terminal_size(terminal_width, terminal_height);
+
+        int start_y = terminal_height / 2 - piece->getHeight()/2;
+        int start_x = counter * (2 * piece->getWidth());
+        piece->set_position(start_x, start_y);
+        player_pieces.push_back(piece);
         Database::increment_games_played(db, client->username);
+        counter++;
     }
+    counter = 0;
     num_players = live_clients.size();
     num_remaining_players = num_players;
     int random_werewolf = rand() % num_players;
+    int random_engineer = rand() % num_players;
+    //random seer exluding engineer and werewolf
+    while(random_engineer == random_werewolf || random_engineer == random_werewolf){
+        random_engineer = rand() % num_players;
+    }
+    int random_seer = rand() % num_players;
+    //random seer exluding engineer and werewolf
+    while(random_seer == random_werewolf || random_seer == random_engineer){
+        random_engineer = rand() % num_players;
+    }
+    werewolf_index = random_werewolf;
     werewolf_client = live_clients[random_werewolf];
     Database::increment_games_as_werewolf(db, werewolf_client->username);
     is_night_cycle = true;
@@ -249,48 +377,48 @@ void Game::start_game(Room * room, sqlite3* db) {
                         count++;
                     }
                     bool boo = true;
-                    int target_index = 0;
-                    while(boo){
-                        send(werewolf_client->socket, message.c_str(), message.size(), 0);
-                        //char c;
-                        std::string target;
-                        Server::receive_line(werewolf_client->socket, target, ECHO_ON);
+                    int werewolf_target_index = 0;
+                    werewolf_target_index = select_target(werewolf_client->socket, werewolf_index);
+                    // while(boo){
+                    //     send(werewolf_client->socket, message.c_str(), message.size(), 0);
+                    //     //char c;
+                    //     std::string target;
+                    //     Server::receive_line(werewolf_client->socket, target, ECHO_ON);
 
-                        //target = target.substr(0, target.find("\n"));  // Remove newline
-
-                        std::cout<<"target: "<< target << std::endl;        
-                        try{
-                            target_index = stoi(target) - 1;
-                            if(target_index < num_remaining_players && target_index >= 0){
-                                boo = false;
-                            }
-                            else{
-                                message = "Invalid target index, please try again.\n";
-                                send(werewolf_client->socket, message.c_str(), message.size(), 0);
-                            }
-                        }
-                        catch(std::invalid_argument& e){
-                            std::cout<<"invalid argument"<<std::endl;
-                        }
-                    }
-                    Client * target_client = live_clients[target_index]; 
-                    message = "You chose " + target_client->username + " as your target.\n";
+                    //     std::cout<<"target: "<< target << std::endl;        
+                    //     try{
+                    //         target_index = stoi(target) - 1;
+                    //         if(target_index < num_remaining_players && target_index >= 0){
+                    //             boo = false;
+                    //         }
+                    //         else{
+                    //             message = "Invalid target index, please try again.\n";
+                    //             send(werewolf_client->socket, message.c_str(), message.size(), 0);
+                    //         }
+                    //     }
+                    //     catch(std::invalid_argument& e){
+                    //         std::cout<<"invalid argument"<<std::endl;
+                    //     }
+                    // }
+                    Client * werewolf_target_client = live_clients[werewolf_target_index]; 
+                    message = "You chose " + werewolf_target_client->username + " as your target.\n";
                     //printf("target_client: %s\n", target_client->username.c_str());
                     send(werewolf_client->socket, message.c_str(), message.size(), 0);
                     message = "You have been killed by the werewolf!\n";
-                    send(target_client->socket, message.c_str(), message.size(), 0);
-                    last_killed_client = target_client;
+                    player_pieces[werewolf_target_index]->setImage(dead_house_art);
+                    send(werewolf_target_client->socket, message.c_str(), message.size(), 0);
+                    last_killed_client = werewolf_target_client;
                     printf("last_killed_client: %s\n", last_killed_client->username.c_str());
                     live_clients.erase(
                         std::remove_if(live_clients.begin(), live_clients.end(),
-                            [target_client](const Client* client) { return client == target_client; }
+                            [werewolf_target_client](const Client* client) { return client == werewolf_target_client; }
                         ),
                         live_clients.end()
                     );
                     //live_clients.erase(target_index);
                     for(auto it : live_clients){
-                        if(it != target_client){
-                            message = "The werewolf has killed " + target_client->username + "!\n";
+                        if(it != werewolf_target_client){
+                            message = "The werewolf has killed " + werewolf_target_client->username + "!\n";
                             send(it->socket, message.c_str(), message.size(), 0);
                         }
                         else{
@@ -313,14 +441,14 @@ void Game::start_game(Room * room, sqlite3* db) {
                 }
                 else{
                     is_night_cycle = true;
-                    std::string message = "It is day time, everyone wake up!";
+                    std::string message = "It is day time, everyone wake up!\n";
                     for (Client *client : live_clients) {
                         send(client->socket, message.c_str(), message.size(), 0);
                     }
                     if(last_killed_client != nullptr){                   
                         message = last_killed_client->username + " has been killed by the werewolf!\n";
                         std::cout << message << std::endl;
-                        printf("%s has been killed by the werewolf\n", (last_killed_client->username.c_str()));
+                        //printf("%s has been killed by the werewolf\n", (last_killed_client->username.c_str()));
                         for (Client *client : room->clients) {
                             send(client->socket, message.c_str(), message.size(), 0);
                         }
@@ -403,7 +531,9 @@ void Game::start_game(Room * room, sqlite3* db) {
                             message = "The werewolf has been kicked! Villagers win!\n";
                             for(Client *client : room->clients) {
                                 send(client->socket, message.c_str(), message.size(), 0);
+                                std::cout << "comparing " << client->username << " to " << werewolf_client->username << std::endl;
                                 if(client != werewolf_client){
+                                    std::cout << "incrementing wins for " << client->username << std::endl;
                                     Database::increment_wins(db, client->username);
                                 }
                             }
@@ -463,17 +593,25 @@ void Game::host_game(Client *client, std::vector<Room*> &rooms, sqlite3 * db) {
         }
     Client_terminal::clear_screen(client->socket);
     Client_terminal::move_cursor(client->socket, 0, 0);
-    std::string message = "You are the host of " + room_name + "!\ntype start to begin the game\n";
+    std::string message = "You are the host of " + room_name + "!\ntype \'start\' to begin the game\n";
     Client_terminal::print(client->socket, message);
-    
-    while(true){
+    bool exit_loop = false;
+    while(!exit_loop){
         std::string input;
         Server::receive_line(client->socket, input, ECHO_ON);
         if(input == "start"){
-            room->room_mutex.lock();
-            room->is_room_game_running = true;
-            room->room_mutex.unlock();
-            break;
+            if(room->clients.size() > 4){
+                room->room_mutex.lock();
+                room->is_room_game_running = true;
+                room->room_mutex.unlock();
+                exit_loop = true;
+                break;
+            }
+            else{
+                std::string message = "You need at least 4 players to start the game!\nType \'start\' to start the game\n";
+                Client_terminal::print(client->socket, message);
+            }
+
         }
     }
     Game::start_game(room, db);
@@ -488,10 +626,10 @@ void Game::join_game(Client *client, std::vector<Room*> &rooms) {
     Client_terminal::get_terminal_size(terminal_width, terminal_height);
     bool in_room = false;
     std::string room_name;
-std::cout << "Available rooms: " << rooms.size() << std::endl;
-for (const auto& room : rooms) {
-    std::cout << "Room name: " << room->name << std::endl;
-}
+    std::cout << "Available rooms: " << rooms.size() << std::endl;
+    for (const auto& room : rooms) {
+        std::cout << "Room name: " << room->name << std::endl;
+    }
     while(!in_room){
         std::string prompt = "Enter room name: ";
         int startY = (terminal_height - 1) / 2;
@@ -499,7 +637,7 @@ for (const auto& room : rooms) {
         Client_terminal::move_cursor(client->socket, startX, startY);
         Client_terminal::print(client->socket, prompt);
         Server::receive_line(client->socket, room_name, ECHO_ON);
-        for(int i = 0; i < rooms.size(); i++){
+        for(long unsigned int i = 0; i < rooms.size(); i++){
             if(rooms[i]->name == room_name){
                 join_room = rooms[i];
                 Client_terminal::clear_screen(client->socket);
@@ -564,13 +702,18 @@ for (const auto& room : rooms) {
 }
 
 void Game::stop_game(Room * room) {
-    // Implementation needed
+    // provide time for the game over scree to be displayed
+    std::this_thread::sleep_for(std::chrono::seconds(3));
     room->room_mutex.lock();
     room->is_room_game_running = false;
     room->room_mutex.unlock();
     //remove all players from room
-    for(auto player : room->clients){
-        room->remove_player(player);
-    }
+    room->clients.clear();
+    //free and delete werewolf client
+    free(werewolf_client);
+    werewolf_client = nullptr;
+    //for(auto player : room->clients){
+    //    room->remove_player(player);
+    //}
     
 }
