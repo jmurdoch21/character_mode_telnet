@@ -402,7 +402,13 @@ void Game::start_game(Room * room, sqlite3* db) {
                     //         std::cout<<"invalid argument"<<std::endl;
                     //     }
                     // }
-                    Client * target_client = live_clients[target_index]; 
+                    Client * uni_target_client = game_clients[target_index];
+                    Client * target_client;
+                    for(Client * client : live_clients){
+                        if(client->username == uni_target_client->username){
+                            target_client = client;
+                        }
+                    }
                     message = "You chose " + target_client->username + " as your target.\n";
                     //printf("target_client: %s\n", target_client->username.c_str());
                     send(werewolf_client->socket, message.c_str(), message.size(), 0);
