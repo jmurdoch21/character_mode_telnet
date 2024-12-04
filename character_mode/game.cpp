@@ -175,6 +175,8 @@ int Game::select_target(int client_socket, int player_index) {
                 piece->setBold(false);
                 piece->draw(client_socket);
             }
+            Client_terminal::move_cursor(client_socket, piece->getBoundingBox().getXMin(), piece->getBoundingBox().getYMax()+1);
+            Client_terminal::print(client_socket, game_clients[counter]->username);
             counter ++;
             //Client_terminal::draw(client_socket, piece);
         }
