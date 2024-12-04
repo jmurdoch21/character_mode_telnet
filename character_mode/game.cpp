@@ -32,6 +32,19 @@ Game::Game() {
     title_art.set_position(title_xmin, title_ymin);
 
 }
+Game::~Game() {
+    std::cout << "Game destructor called" << std::endl;
+    live_clients.clear();
+    game_clients.clear();
+
+    //delete pieces
+    for(SetPiece* piece : player_pieces){
+        delete piece;
+    }
+    //player_pieces.clear();
+
+
+}
 
 // Function to print the menu and highlight the selected row
 void Game::print_menu(int client_socket, size_t selected_row) {
@@ -343,16 +356,20 @@ void Game::start_game(Room * room, sqlite3* db) {
     num_players = live_clients.size();
     num_remaining_players = num_players;
     int random_werewolf = rand() % num_players;
-     int random_engineer = rand() % num_players;
+    int random_engineer = rand() % num_players;
     //random seer exluding engineer and werewolf
+    std::cout << "selecting werewolf" << std::endl;
+    std::cout << "num players: " << num_players << std::endl;
     while(random_engineer == random_werewolf || random_engineer == random_werewolf){
         random_engineer = rand() % num_players;
     }
+    std::cout << "selected engineer" << std::endl;
     int random_seer = rand() % num_players;
     //random seer exluding engineer and werewolf
     while(random_seer == random_werewolf || random_seer == random_engineer){
-        random_engineer = rand() % num_players;
+        random_seer = rand() % num_players;
     }
+    std::cout << "selected seer" << std::endl;
     werewolf_index = random_werewolf;
     engineer_index = random_engineer;
     seer_index = random_seer;
@@ -362,6 +379,7 @@ void Game::start_game(Room * room, sqlite3* db) {
     Database::increment_games_as_werewolf(db, werewolf_client->username);
     is_night_cycle = true;
     //bool is_running = true;
+    //std::cout << "is game running: " << room->is_room_game_running << std::endl;
     while (room->is_room_game_running) {
             {
                 // Here you can update game state based on player actions
@@ -628,6 +646,9 @@ void Game::host_game(Client *client, std::vector<Room*> &rooms, sqlite3 * db) {
     Game::start_game(room, db);
     //remove room from rooms
     rooms.erase(std::remove(rooms.begin(), rooms.end(), room), rooms.end());
+    //free room
+    //free(room);
+    delete room;
 }
 
 void Game::join_game(Client *client, std::vector<Room*> &rooms) {

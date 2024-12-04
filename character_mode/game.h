@@ -63,6 +63,7 @@ class Game{
             };
     public:
         Game();
+        ~Game();
         void print_menu(int client_socket, size_t selected_row = 0);
         void draw_title(int client_socket);
         void draw_menu(int client_socket, size_t selected_row = 0);

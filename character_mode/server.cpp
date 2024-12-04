@@ -15,7 +15,7 @@
 #include "room.h"
 
 sqlite3 *db;
-Game werewolf_game;
+Game uni_werewolf_game;
 std::vector<Room *> rooms;
 std::mutex server_mutex;
 
@@ -295,7 +295,9 @@ void Server::handle_client(Client *client) {
         //bool signed_in = false;
         Server::sign_in(client);
         bool exit_game = false;
+        
         while(!exit_game){
+            Game werewolf_game;
             int menu_selection = werewolf_game.select_from_menu(client->socket);
 
             GameMenu selected_option = static_cast<GameMenu>(menu_selection);

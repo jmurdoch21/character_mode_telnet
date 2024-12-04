@@ -33,7 +33,9 @@ Room::Room(std::string name){//} : name(name), clients() {}
     this->is_room_game_running = false;
 }
 Room::Room(std::string name, std::vector<Client *> clients) : name(name), clients(clients) {}
-Room::~Room() {}
+Room::~Room() {
+    clients.clear();
+}
 Room::Room(const Room &other) : name(other.name), clients(other.clients) {}
 Room& Room::operator=(const Room& other) {
     if (this != &other) {
