@@ -263,7 +263,6 @@ int Game::select_target(int client_socket, int player_index, std::vector<bool> s
 }
 
 void Game::rules(int client_socket) {
-    // Implement the rules functionality here
     Client_terminal::clear_screen(client_socket);
     Client_terminal::move_cursor(client_socket, 0, 0);
 
@@ -299,7 +298,6 @@ void Game::rules(int client_socket) {
 }
 
 void Game::stats(sqlite3* db, int client_socket, const std::string& username) {
-    // Implement the stats functionality here
     int num_games = 0;
     int games_as_werewolf = 0;
     int num_wins = 0;
@@ -425,9 +423,7 @@ void Game::handle_client_vote(Client* client, std::string &list_of_defenses, std
 // }
 
 void Game::start_game(Room * room, sqlite3* db) {
-    // Implementation needed
     std::cout << "Starting game..." << std::endl;
-    // Add your game logic here
     std::string message = "Game started!\n";
     int counter = 1;
     for (Client *client : room->clients) {
@@ -479,9 +475,7 @@ void Game::start_game(Room * room, sqlite3* db) {
     //bool is_running = true;
     //std::cout << "is game running: " << room->is_room_game_running << std::endl;
     while (room->is_room_game_running) {
-            {
-                // Here you can update game state based on player actions
-                // For example, broadcast game state to all players in the room
+            
                 if(is_night_cycle){
                     is_night_cycle = false;
                     std::string message = "It is night time, all players go to sleep!\n\n";
@@ -689,7 +683,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                             vote_threads.push_back(std::thread(handle_client_vote, client, std::ref(list_of_defenses), std::ref(votes), num_remaining_players));
                         }
 
-                        // Join all threads to ensure they complete before moving forward
+                        // Join all threads
                         for (std::thread& t : vote_threads) {
                             t.join();
                         }
@@ -779,15 +773,13 @@ void Game::start_game(Room * room, sqlite3* db) {
 
                 //     send(client->socket, message.c_str(), message.size(), 0);
                 // }
-            }
+            
 
-            // Sleep for a short period to simulate game ticks
-            //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
 }
 void Game::host_game(Client *client, std::vector<Room*> &rooms, sqlite3 * db) {   
-    // Implementation needed
+
     Client_terminal::clear_screen(client->socket);
     int terminal_width, terminal_height;
     Client_terminal::get_terminal_size(terminal_width, terminal_height);
