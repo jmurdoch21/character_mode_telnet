@@ -35,8 +35,8 @@ void SetPiece::update_position() {
     next_bounding_box.move(x_speed, y_speed);
 }
 
-// void SetPiece::draw() {
-//     // Add these debug lines at the start of draw()
+// void SetPiece::draw() { //not for network
+//     // debug
 //     //std::cout << "is_bold: " << is_bold << std::endl;
 //     //std::cout << "image_color: " << static_cast<int>(color) << std::endl;
 //     //int image_width = image[0].length();      // Width of the image (based on the first line)
@@ -59,8 +59,9 @@ void SetPiece::update_position() {
 //     std::cout.flush();  // Ensure the output is displayed immediately
 
 // }
+
 void SetPiece::draw(int client_socket) {
-    // Add these debug lines at the start of draw()
+    // debugging
     //std::cout << "is_bold: " << is_bold << std::endl;
     //std::cout << "image_color: " << static_cast<int>(color) << std::endl;
     //int image_width = image[0].length();      // Width of the image (based on the first line)

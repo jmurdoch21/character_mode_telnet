@@ -3,8 +3,8 @@
 
 class BoundingBox {
 private:
-    float x_min, y_min; // Bottom-left corner
-    float x_max, y_max; // Top-right corner
+    float x_min, y_min; // Top-left corner (terminal coordinates)
+    float x_max, y_max; // Bottom-right corner
 
 public:
     // Constructor

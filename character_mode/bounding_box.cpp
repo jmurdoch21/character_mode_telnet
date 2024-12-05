@@ -33,7 +33,7 @@ void BoundingBox::move(float dx, float dy) {
     y_max += dy;
 }
 
-// set x_min and y_max for the bounding box (top left corner)
+// set x_min and y_min for the bounding box (top left corner)
 void BoundingBox::set(int x_min_new, int y_min_new) {
     float width = getWidth();
     float height = getHeight();

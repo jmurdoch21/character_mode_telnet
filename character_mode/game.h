@@ -77,7 +77,7 @@ class Game{
         int select_from_menu(int client_socket);
         int select_target(int client_socket, int client_index, std::vector<bool> selectable_players);
 
-        //thread function to handle defenses
+        //thread functions to handle defenses and votes
         static void handle_client_defense(Client* client, std::string &list_of_defenses);
         static void handle_client_vote(Client* client, std::string &list_of_defenses, std::vector<int> &votes, int num_remaining_players);
         void start_game(Room * room, sqlite3 * db);

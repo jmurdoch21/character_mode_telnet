@@ -64,7 +64,7 @@ std::string Ansi_commands::show_cursor_command() {
     return "\033[?25h";
 }
 
-// Function to check if a key is available in stdin without blocking
+// Function to check if a key is available in stdin without blocking (only in local version)
 bool Ansi_commands::key_available() {
     struct termios oldt, newt;
     //int oldf;
@@ -92,7 +92,7 @@ bool Ansi_commands::key_available() {
     
 }
 
-// Function to read a key press and return the corresponding arrow key code
+// Function to read a key press and return the corresponding arrow key code (not for network)
 char Ansi_commands::read_key() {
     char buffer[3] = {0};
     read(STDIN_FILENO, buffer, 3);  // Read input from the Ansi_commands

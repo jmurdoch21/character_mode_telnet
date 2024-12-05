@@ -42,41 +42,35 @@ void Server::send_message(int client_socket, const std::string &message) {
 
 //Function to divide inputs by newline
 void Server::receive_line(int client_socket, std::string& user_input, bool echo_enabled) {
-    //user_input.clear();
     user_input = "";
-    // Buffer for storing received data
-    // char buffer[1024];
-    // int bytes_received;
+
     bool in_line = true;
     char c;
     Client_terminal::save_cursor_position(client_socket);
-    // Loop to receive data from the client
-    //while ((bytes_received = recv(client_socket, buffer, sizeof(buffer), 0)) > 0 && in_line) {
     
-    //logging
     std::cout << "Starting receive_line for client " << client_socket << std::endl;
 
 
     while(in_line){
             ssize_t bytes_received = recv(client_socket, &c, 1, 0);
-            if (bytes_received <=0) {
-            if (bytes_received == 0) {
-                // Client disconnected cleanly
-                throw std::runtime_error("Client disconnected");
-            } else {
-                // Error occurred
-                throw std::runtime_error("Connection error");
+            if(c == static_cast<char>(Keys::ESC)){
+                user_input = static_cast<char>(Keys::ESC);
+                send_message(client_socket, "\n");
+                return;
             }
-        }
+            if (bytes_received <=0) {
+                if (bytes_received == 0) {
+                    throw std::runtime_error("Client disconnected");
+                } else {
+                    throw std::runtime_error("Connection error");
+                }
+            }
             if(c == '\0'){
                 std::cout << "Received null byte" << std::endl;
                 continue;
             }
-            //Server::blocking_receive(client_socket, &c, 1);
-            //for (int i = 0; i < bytes_received; ++i) {
-            //char c = buffer[i];
 
-            // Check if the byte is part of a Telnet control sequence (IAC)
+            // Check if part of a Telnet control sequence (IAC)
             if ((unsigned char)c == IAC) {
                 // Handle Telnet control sequences
                 unsigned char command[2];
@@ -154,19 +148,6 @@ int Server::start_server(int& server_socket, struct sockaddr_in& server_addr, st
         return 1;
     }
 
-    // Set the socket to non-blocking mode
-    // int flags = fcntl(server_socket, F_GETFL, 0);
-    // if (flags == -1) {
-    //     std::cerr << "Failed to get socket flags" << std::endl;
-    //     close(server_socket);
-    //     return -1;
-    // }
-    // if (fcntl(server_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
-    //     std::cerr << "Failed to set non-blocking mode" << std::endl;
-    //     close(server_socket);
-    //     return -1;
-    // }
-
     // Prepare the sockaddr_in structure
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
@@ -240,7 +221,13 @@ bool Server::sign_in(Client * client) {
             //logging
             std::cout << "Client " << client->socket << " attempting to receive data" << std::endl;
             //recv(client->socket, &action, 1, 0);
-            Server::receive_line(client->socket, action, ECHO_ON);
+            bool exit = false;
+            while(!exit){
+                Server::receive_line(client->socket, action, ECHO_ON);
+                if(action[0]!=static_cast<char>(Keys::ESC)){
+                    exit = true;
+                }
+            }
             
             try{
                 doing_register = stoi(action);
@@ -253,23 +240,31 @@ bool Server::sign_in(Client * client) {
         }
         // Username and Password
         send_message(client->socket, "Enter username: ");
-        Server::receive_line(client->socket, client->username, ECHO_ON);  
+        Server::receive_line(client->socket, client->username, ECHO_ON);
+        if(client->username[0]== static_cast<char>(Keys::ESC)){
+            continue;
+        }
         std::cout << "username string length: " << client->username.length() << std::endl;
-for(size_t i = 0; i < client->username.length(); i++) {
-    std::cout << "char at " << i << ": " << (int)client->username[i] << std::endl;
-}         
+            for(size_t i = 0; i < client->username.length(); i++) {
+                std::cout << "char at " << i << ": " << (int)client->username[i] << std::endl;
+            }         
         std::cout<<"username: "<< client->username << "check" << std::endl;
         send_message(client->socket, "Enter password: ");
         Server::receive_line(client->socket, password, ECHO_OFF);
+        if(password[0]== static_cast<char>(Keys::ESC)){
+            continue;
+        }
         std::cout << "password string length: " << password.length() << std::endl;
-for(size_t i = 0; i < password.length(); i++) {
-    std::cout << "char at " << i << ": " << (int)password[i] << std::endl;
-}         
+            for(size_t i = 0; i < password.length(); i++) {
+                std::cout << "char at " << i << ": " << (int)password[i] << std::endl;
+            }         
         std::cout<<"password: "<< password << "check" << std::endl;
         //check if user is already logged in
         for(auto& client_iter : clients) {
+            std::cout << "client iter username: " << client_iter->username << std::endl;
             if(client->username == client_iter->username){
-                send_message(client->socket, "Username already exists.\n");
+                //send_message(client->socket, "Username already exists.\n");
+                std::cout << "user is signed in" << std::endl;
                 user_already_signed_in = true;
             }
         }
@@ -297,7 +292,6 @@ for(size_t i = 0; i < password.length(); i++) {
                     send_message(client->socket, "Login successful.\n");
                     clients.push_back(client);
                     signed_in = true;
-                    //Database::increment_games_played(db, client->username);
                     return true;
                 } else {
                     send_message(client->socket, "Login failed.\n");
@@ -354,6 +348,13 @@ void Server::handle_client(Client *client) {
     catch (...) {
         std::cout << "Unexpected error handling client " << client->socket << std::endl;
     }
+    //remove client from the vector
+    for (auto it = clients.begin(); it != clients.end(); ++it) {
+        if ((*it)->socket == client->socket) {
+            clients.erase(it);
+            break;
+        }
+    }
     // Close the client socket
     close(client->socket);
     delete client;
@@ -378,45 +379,6 @@ int main() {
     listen(server_socket, 3);
 
     std::cout << "Waiting for incoming Telnet connection..." << std::endl;
-
-    // Accept an incoming connection
-    // client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_len);
-    // if (client_socket < 0) {
-    //     std::cerr << "Accept failed." << std::endl;
-    //     close(server_socket);
-    //     return -1;
-    // }
-
-    //std::cout << "Connection accepted." << std::endl;
-
-    //Server::send_message(client_socket, "---\n");
-    // Enable character mode
-    //Server::enableCharacterMode(client_socket);
-    
-    //std::cout <<"client in character mode" << std::endl;
-
-    // std::string user_input;
-
-    // //receive a name
-    // send(client_socket, "Enter name: ", sizeof("Enter name: "), 0);
-    // std::cout << "Waiting for name..." << std::endl;
-    // Server::receive_line(client_socket, user_input, ECHO_ON);
-    // std::cout << "Received name: " << user_input << std::endl;
-
-    // //disable echo on the client side
-    // //disableEcho(client_socket);
-    // //receive a password with client side echo disabled
-    // send(client_socket, "Enter password: ", sizeof("Enter password: "), 0);
-    // Server::receive_line(client_socket, user_input, ECHO_OFF);
-    // std::cout << "Received password: " << user_input << std::endl;
-
-    // //enable echo on the client side
-    // //enableEcho(client_socket);
-    // //receive a message with client side echo enabled
-    // send(client_socket, "Enter message: ", sizeof("Enter message: "), 0);   
-    // Server::receive_line(client_socket, user_input, ECHO_ON);
-    // std::cout << "Received message: " << user_input << std::endl;
-
 
     while (true){//!server_shutdown) {
         fd_set readfds;
@@ -455,6 +417,7 @@ int main() {
     std::cout << "Server shutting down..." << std::endl;
     close(server_socket);
     sqlite3_close(db);
+
     // Close the client socket
     close(client_socket);
 
