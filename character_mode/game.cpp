@@ -351,6 +351,37 @@ void Game::handle_client_defense(Client* client, std::string &list_of_defenses) 
     defense_mutex.unlock();
                         
 }
+std::mutex vote_mutex;
+void Game::handle_client_vote(Client* client, std::string &list_of_defenses, std::vector<int> &votes, int num_remaining_players) {
+    send(client->socket, list_of_defenses.c_str(), list_of_defenses.size(), 0);
+    bool boo = true;
+    int target_index = 0; 
+    std::cout<<"enter loop"<<std::endl;
+    while(boo){
+        std::cout<<"in loop"<<std::endl;
+        std::string target;
+        Server::receive_line(client->socket, target, ECHO_ON);
+        
+        std::cout<<"target: "<< target << std::endl;        
+        try{
+            target_index = stoi(target) - 1;
+            if(target_index < num_remaining_players && target_index >= 0){
+                vote_mutex.lock();
+                votes[target_index]++;
+                vote_mutex.unlock();
+                boo = false;
+            }
+            else{
+                std::string message = "Invalid target index, please try again.\n";
+                send(client->socket, message.c_str(), message.size(), 0);
+            }
+        }
+        catch(std::invalid_argument& e){
+            std::cout<<"invalid argument"<<std::endl;
+        }
+    }
+    std::cout <<"Returning thread"<<std::endl;
+}
 
 void Game::start_game(Room * room, sqlite3* db) {
     // Implementation needed
@@ -531,37 +562,56 @@ void Game::start_game(Room * room, sqlite3* db) {
                             list_of_defenses += "["+std::to_string(count) + "] " + (client->username) + "\n";                            
                             count++;
                         }
-                        int * votes = (int *)malloc(num_remaining_players * sizeof(int));
-                        //memset(votes, 0, num_remaining_players * sizeof(int));
+                        // int * votes = (int *)malloc(num_remaining_players * sizeof(int));
+                        // //memset(votes, 0, num_remaining_players * sizeof(int));
+                        // for(int i = 0; i < num_remaining_players; i++){
+                        //     printf("votes[%d]: %d\n",i,votes[i]);
+                        //     votes[i] = 0;
+                        // }
+                        std::vector<int> votes(num_remaining_players, 0);
+
+                        // Then use votes directly
                         for(int i = 0; i < num_remaining_players; i++){
-                            printf("votes[%d]: %d\n",i,votes[i]);
-                            votes[i] = 0;
+                            votes[i] = 0; 
                         }
-                        for(Client *client : live_clients){
-                            send(client->socket, list_of_defenses.c_str(), list_of_defenses.size(), 0);
-                            bool boo = true;
-                            int target_index = 0; 
-                            while(boo){
-                                std::string target;
-                                Server::receive_line(client->socket, target, ECHO_ON);
-                                std::cout<<"target: "<< target << std::endl;        
-                                try{
-                                    target_index = stoi(target) - 1;
-                                    if(target_index < num_remaining_players && target_index >= 0){
-                                        votes[target_index]++;
-                                        boo = false;
-                                    }
-                                    else{
-                                        message = "Invalid target index, please try again.\n";
-                                        send(werewolf_client->socket, message.c_str(), message.size(), 0);
-                                    }
-                                }
-                                catch(std::invalid_argument& e){
-                                    std::cout<<"invalid argument"<<std::endl;
-                                }
-                            }
+                        // for(Client *client : live_clients){
+                        //     send(client->socket, list_of_defenses.c_str(), list_of_defenses.size(), 0);
+                        //     bool boo = true;
+                        //     int target_index = 0; 
+                        //     while(boo){
+                        //         std::string target;
+                        //         Server::receive_line(client->socket, target, ECHO_ON);
+                        //         std::cout<<"target: "<< target << std::endl;        
+                        //         try{
+                        //             target_index = stoi(target) - 1;
+                        //             if(target_index < num_remaining_players && target_index >= 0){
+                        //                 votes[target_index]++;
+                        //                 boo = false;
+                        //             }
+                        //             else{
+                        //                 message = "Invalid target index, please try again.\n";
+                        //                 send(werewolf_client->socket, message.c_str(), message.size(), 0);
+                        //             }
+                        //         }
+                        //         catch(std::invalid_argument& e){
+                        //             std::cout<<"invalid argument"<<std::endl;
+                        //         }
+                        //     }
+                        // }
+                        //multithread the voting
+                        //multithread list of defenses
+                        std::vector<std::thread> vote_threads;   
+                        // Spawn a thread for each client
+                        for (Client* client : live_clients) {
+                            vote_threads.push_back(std::thread(handle_client_vote, client, std::ref(list_of_defenses), std::ref(votes), num_remaining_players));
                         }
-                        
+
+                        // Join all threads to ensure they complete before moving forward
+                        for (std::thread& t : vote_threads) {
+                            t.join();
+                        }
+
+
                         int max = votes[0];
                         int kick_index = 0;
                         bool tie = false;
@@ -578,12 +628,24 @@ void Game::start_game(Room * room, sqlite3* db) {
                         }
                         printf("kick_index:%d\n",kick_index);
                         Client * kick_client = live_clients[kick_index];
+                        int univ_kick_index = 0;
+                        int kick_index_counter = 0;
+                        for(Client * client : game_clients){
+                            if(client->username == kick_client->username){
+                                univ_kick_index = kick_index_counter;
+                                break;
+                            }
+                            kick_index_counter++;
+                        }
                         if(tie){
                             message = "There was a tie, no one was kicked!\n";
                         }
                         else{
                             message = kick_client->username + " has been kicked!\n";
                             live_clients.erase(std::remove(live_clients.begin(), live_clients.end(), kick_client), live_clients.end());
+                            std::vector<std::string> dead_house_art_copy = dead_house_art;
+                            player_pieces[univ_kick_index]->setImage(dead_house_art_copy);
+                            is_alive[univ_kick_index] = false;
                             num_remaining_players--;
                         }
                         for(Client *client : room->clients) {

@@ -79,6 +79,7 @@ class Game{
 
         //thread function to handle defenses
         static void handle_client_defense(Client* client, std::string &list_of_defenses);
+        static void handle_client_vote(Client* client, std::string &list_of_defenses, std::vector<int> &votes, int num_remaining_players);
         void start_game(Room * room, sqlite3 * db);
         void stop_game(Room * room);
         void host_game(Client *client, std::vector<Room *> &rooms, sqlite3 * db);

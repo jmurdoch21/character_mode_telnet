@@ -6,6 +6,7 @@
 
 class  Client_terminal {
     public:
+        static void clear_recv_buffer(int client_socket);
         static void get_terminal_size(int &width, int &height);
         static void erase_user_input(int client_socket);
         static void save_cursor_position(int client_socket);

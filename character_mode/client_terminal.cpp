@@ -6,7 +6,11 @@
 #include <sys/socket.h>
 #include "client_terminal.h"
 
-
+//Function to clear the recv buffer
+void Client_terminal::clear_recv_buffer(int client_socket){
+    char c;
+    int bytes_received;
+}
 // Function to get the terminal size (width and height) (for the network version of this, we just assume standard terminal size)
 void Client_terminal::get_terminal_size(int &width, int &height) {
     //struct winsize w;
