@@ -484,7 +484,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                 // For example, broadcast game state to all players in the room
                 if(is_night_cycle){
                     is_night_cycle = false;
-                    std::string message = "It is night time, all players go to sleep!\n";
+                    std::string message = "It is night time, all players go to sleep!\n\n";
                     for (Client *client : room->clients) {                  
                         send(client->socket, message.c_str(), message.size(), 0);
                     }
@@ -515,7 +515,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                             werewolf_target_client = client;
                         }
                     }
-                    message = "You chose " + werewolf_target_client->username + " as your target.\n";
+                    message = "You chose " + werewolf_target_client->username + " as your target.\n\n";
                     //printf("target_client: %s\n", target_client->username.c_str());
                     send(werewolf_client->socket, message.c_str(), message.size(), 0);
 
@@ -536,7 +536,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                                 engineer_target_client = client;
                             }
                         }
-                        message = "You chose " + engineer_target_client->username + " as your target.\n";
+                        message = "You chose " + engineer_target_client->username + " as your target.\n\n";
                         //printf("target_client: %s\n", target_client->username.c_str());
                         send(engineer_client->socket, message.c_str(), message.size(), 0);
                     }
@@ -557,13 +557,13 @@ void Game::start_game(Room * room, sqlite3* db) {
                                 seer_target_client = client;
                             }
                         }
-                        message = seer_target_client->username + " is " + roles[seer_target_index] + ".\n";
+                        message = seer_target_client->username + " is " + roles[seer_target_index] + ".\n\n";
                         //printf("target_client: %s\n", target_client->username.c_str());
                         send(seer_client->socket, message.c_str(), message.size(), 0);
                     }
 
                     if(!is_alive[engineer_index] || werewolf_target_index != engineer_target_index){
-                        message = "You have been killed by the werewolf!\n";
+                        message = "You have been killed by the werewolf!\n\n";
                         std::vector<std::string> dead_house_art_copy = dead_house_art;
                         player_pieces[werewolf_target_index]->setImage(dead_house_art_copy);
                         send(werewolf_target_client->socket, message.c_str(), message.size(), 0);
@@ -579,7 +579,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                         //live_clients.erase(target_index);
                         for(auto it : game_clients){
                             if(it != werewolf_target_client){
-                                message = "The werewolf has killed " + werewolf_target_client->username + "!\n";
+                                message = "The werewolf has killed " + werewolf_target_client->username + "!\n\n";
                                 send(it->socket, message.c_str(), message.size(), 0);
                             }
                         }
@@ -587,7 +587,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                         num_remaining_players--;
                     }
                     else{
-                        message = "No one was killed this night.\n";
+                        message = "No one was killed this night.\n\n";
                         for(auto it : game_clients){
                             send(it->socket, message.c_str(), message.size(), 0);
                         }
@@ -605,7 +605,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                 }
                 else{
                     is_night_cycle = true;
-                    std::string message = "It is day time, everyone wake up!\n";
+                    std::string message = "It is day time, everyone wake up!\n\n";
                     for (Client *client : live_clients) {
                         send(client->socket, message.c_str(), message.size(), 0);
                     }
@@ -618,6 +618,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                     //     }
                     //     last_killed_client = nullptr;
                         std::string list_of_defenses;
+                        list_of_defenses += "\nList of defenses:\n";
                         // for(Client *client : live_clients){
                         //     message = client->username + ", state your defense: \n";
                         //     send(client->socket, message.c_str(), message.size(), 0);
@@ -637,12 +638,13 @@ void Game::start_game(Room * room, sqlite3* db) {
                             t.join();
                         }
 
-                        list_of_defenses += "Time to vote! Who do you think is the werewolf?\nEnter the index of the player\n";
+                        list_of_defenses += "\nTime to vote! Who do you think is the werewolf?\nEnter the index of the player\n";
                         int count = 1;
                         for(Client *client : live_clients) {
                             list_of_defenses += "["+std::to_string(count) + "] " + (client->username) + "\n";                            
                             count++;
                         }
+                        list_of_defenses += "\n";
                         // int * votes = (int *)malloc(num_remaining_players * sizeof(int));
                         // //memset(votes, 0, num_remaining_players * sizeof(int));
                         // for(int i = 0; i < num_remaining_players; i++){
@@ -719,11 +721,11 @@ void Game::start_game(Room * room, sqlite3* db) {
                             kick_index_counter++;
                         }
                         if(tie){
-                            message = "There was a tie, no one was kicked!\n";
+                            message = "There was a tie, no one was kicked!\n\n";
                         }
                         else{
 
-                            message = kick_client->username + " has been kicked!\n";
+                            message = kick_client->username + " has been kicked!\n\n";
                             live_clients.erase(std::remove(live_clients.begin(), live_clients.end(), kick_client), live_clients.end());
                             std::vector<std::string> dead_house_art_copy = dead_house_art;
                             player_pieces[univ_kick_index]->setImage(dead_house_art_copy);
@@ -761,7 +763,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                             }
                             else{
                                 message = "You have killed a compatriot!\n";
-                                message += kick_client->username + " was not the werewolf!\n";
+                                message += kick_client->username + " was not the werewolf!\n\n";
                             }
                             for(Client *client : room->clients) {
                                 send(client->socket, message.c_str(), message.size(), 0);
