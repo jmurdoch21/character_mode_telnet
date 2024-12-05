@@ -275,7 +275,8 @@ void Game::rules(int client_socket) {
         "4. Players wake up and type messages to send to each other to deduce who the werewolf is.\n"
         "5. The players vote on who they think is the werewolf by entering the index of the player they suspect.\n"
         "6. The player with the most votes is eliminated. If that is the werewolf, villagers win.\n"
-        "7. The werewolf wins if there is 1 villager left\n";
+        "7. The werewolf wins if there is 1 villager left\n"
+        "\n(Press esc or 'q' to exit)\n";
 
     // Sending the rules message
     ssize_t bytes_sent = send(client_socket, rules.c_str(), rules.size(), 0);
@@ -283,6 +284,17 @@ void Game::rules(int client_socket) {
         std::cerr << "Error sending rules to client" << std::endl;
     } else {
         std::cout << "Rules sent to client successfully." << std::endl;
+    }
+    char c;
+    ssize_t bytes_received;
+    bool exit_stats = false;
+    while(!exit_stats){
+        bytes_received = recv(client_socket, &c, 1, 0);
+        if(bytes_received > 0){
+            if(c == 'q' || c == static_cast<char>(Keys::ESC)){
+                exit_stats = true;
+            }
+        }
     }
 }
 
@@ -303,7 +315,8 @@ void Game::stats(sqlite3* db, int client_socket, const std::string& username) {
     "Games Played: " + std::to_string(num_games) + "\n"
     "Games as Werewolf: " + std::to_string(games_as_werewolf) + "\n"
     "Wins: " + std::to_string(num_wins) + "\n"
-    "Wins as Werewolf: " + std::to_string(wins_as_werewolf) + "\n"; 
+    "Wins as Werewolf: " + std::to_string(wins_as_werewolf) + "\n"
+    "\n(Press esc or 'q' to exit)\n"; 
 
     // Sending the stats message
     ssize_t bytes_sent = send(client_socket, stats.c_str(), stats.size(), 0);
