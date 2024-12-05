@@ -34,6 +34,7 @@ class Game{
         bool is_night_cycle;
         std::vector<Client *> live_clients;
         std::vector<Client *> game_clients;
+        std::vector<std::string> roles;
         std::vector<bool> is_alive;
         std::vector<SetPiece *> player_pieces;
 
