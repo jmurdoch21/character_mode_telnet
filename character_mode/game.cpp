@@ -358,7 +358,13 @@ void Game::handle_client_defense(Client* client, std::string &list_of_defenses) 
     std::string message = client->username + ", state your defense: \n";
     send(client->socket, message.c_str(), message.size(), 0);
     std::string defense;
-    Server::receive_line(client->socket, defense, ECHO_ON);
+    bool exit = false;
+    while(!exit){
+        Server::receive_line(client->socket, defense, ECHO_ON);
+        if(defense[0]!=static_cast<char>(Keys::ESC)){
+            exit = true;
+        }
+    }
     defense_mutex.lock();
     list_of_defenses += client->username + ": " + defense + "\n";
     defense_mutex.unlock();
@@ -373,8 +379,13 @@ void Game::handle_client_vote(Client* client, std::string &list_of_defenses, std
     while(boo){
         std::cout<<"in loop"<<std::endl;
         std::string target;
+        bool exit = false;
         Server::receive_line(client->socket, target, ECHO_ON);
-        
+        while(!exit){
+            if(target[0]!=static_cast<char>(Keys::ESC)){
+                exit = true;
+            }
+        }
         std::cout<<"target: "<< target << std::endl;        
         try{
             target_index = stoi(target) - 1;
@@ -724,6 +735,9 @@ void Game::host_game(Client *client, std::vector<Room*> &rooms, sqlite3 * db) {
     Client_terminal::print(client->socket, prompt);
     std::string room_name;
     Server::receive_line(client->socket, room_name, ECHO_ON);
+    if(room_name[0]==static_cast<char>(Keys::ESC)){
+        return;
+    }
     Room *room = new Room(room_name);
     room->add_player(client);
     rooms.push_back(room);
@@ -782,6 +796,9 @@ void Game::join_game(Client *client, std::vector<Room*> &rooms) {
         Client_terminal::move_cursor(client->socket, startX, startY);
         Client_terminal::print(client->socket, prompt);
         Server::receive_line(client->socket, room_name, ECHO_ON);
+        if(room_name[0]==static_cast<char>(Keys::ESC)){
+            return;
+        }
         for(long unsigned int i = 0; i < rooms.size(); i++){
             if(rooms[i]->name == room_name){
                 if(!rooms[i]->is_room_game_running){
