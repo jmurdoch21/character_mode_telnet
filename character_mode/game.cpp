@@ -162,7 +162,7 @@ int Game::select_from_menu(int client_socket) {
     return selected_row;
 }
 //function to select target
-int Game::select_target(int client_socket, int player_index) {
+int Game::select_target(int client_socket, int player_index, std::vector<bool> selectable_players) {
     int selected_target = 0;
     bool running = true;
     char key = 0;
@@ -232,14 +232,24 @@ int Game::select_target(int client_socket, int player_index) {
                 }
                 break;
             case 10: // Enter key
+                std::cout << "selectable players:\n";
+                for(auto it : selectable_players){
+                    std::cout << it;
+                }
+                std::cout << std::endl;
+                std::cout <<"pointer on piece: " << is_pointer_on_piece << std::endl;
                 if(is_pointer_on_piece){
-                    if(live_clients[selected_target]->username == live_clients[player_index]->username){
+                    if(game_clients[selected_target]->username == game_clients[player_index]->username){
                         Client_terminal::move_cursor(client_socket, 1, 1);
-                        std::string msg = "Cannot select self as target";
+                        std::string msg = "Cannot select self as target\n";
+                        std::cout << msg << std::endl;
                         Server::send_message(client_socket, msg);
                     }
-                    else{
+                    else if(selectable_players[selected_target]){
                         running = false;
+                    }
+                    else{
+                        std::cout << "Cannot select " << live_clients[selected_target]->username << std::endl;
                     }
                 }
                 break;
@@ -341,6 +351,7 @@ void Game::start_game(Room * room, sqlite3* db) {
         send(client->socket, message.c_str(), message.size(), 0);
         live_clients.push_back(client);
         game_clients.push_back(client);
+        is_alive.push_back(true);
         SetPiece* piece = new SetPiece(live_house_art);
         int terminal_height, terminal_width;
         Client_terminal::get_terminal_size(terminal_width, terminal_height);
@@ -400,7 +411,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                     }
                     bool boo = true;
                     int target_index = 0;
-                    target_index = select_target(werewolf_client->socket, werewolf_index);
+                    target_index = select_target(werewolf_client->socket, werewolf_index, is_alive);
                     // while(boo){
                     //     send(werewolf_client->socket, message.c_str(), message.size(), 0);
                     //     //char c;
@@ -433,7 +444,8 @@ void Game::start_game(Room * room, sqlite3* db) {
                     //printf("target_client: %s\n", target_client->username.c_str());
                     send(werewolf_client->socket, message.c_str(), message.size(), 0);
                     message = "You have been killed by the werewolf!\n";
-                    player_pieces[target_index]->setImage(dead_house_art);
+                    std::vector<std::string> dead_house_art_copy = dead_house_art;
+                    player_pieces[target_index]->setImage(dead_house_art_copy);
                     send(target_client->socket, message.c_str(), message.size(), 0);
                     last_killed_client = target_client;
                     printf("last_killed_client: %s\n", last_killed_client->username.c_str());
@@ -443,6 +455,7 @@ void Game::start_game(Room * room, sqlite3* db) {
                         ),
                         live_clients.end()
                     );
+                    is_alive[target_index] = false;
                     //live_clients.erase(target_index);
                     for(auto it : live_clients){
                         if(it != target_client){
@@ -666,38 +679,57 @@ void Game::join_game(Client *client, std::vector<Room*> &rooms) {
         std::string prompt = "Enter room name: ";
         int startY = (terminal_height - 1) / 2;
         int startX = (terminal_width - 1) / 2 - prompt.size();
+        bool is_attempted_room_running = false;
+        bool is_room_full = false;
         Client_terminal::move_cursor(client->socket, startX, startY);
         Client_terminal::print(client->socket, prompt);
         Server::receive_line(client->socket, room_name, ECHO_ON);
         for(long unsigned int i = 0; i < rooms.size(); i++){
             if(rooms[i]->name == room_name){
-                join_room = rooms[i];
-                Client_terminal::clear_screen(client->socket);
-                Client_terminal::move_cursor(client->socket, 0, 0);
-                std::string message = "You have joined " + room_name + "!\n";
-                Client_terminal::print(client->socket, message);
-
-                rooms[i]->room_mutex.lock();
-                rooms[i]->add_player(client);
-                rooms[i]->room_mutex.unlock();
-                
-                for(auto player : rooms[i]->clients){
-                    if(player->username != client->username){
-                        std::string message = client->username + " has joined the game\n";
-                        Client_terminal::print(player->socket, message);
-                        message = player->username + " is in the room\n";
+                if(!rooms[i]->is_room_game_running){
+                    if(rooms[i]->clients.size() < 8){
+                        join_room = rooms[i];
+                        Client_terminal::clear_screen(client->socket);
+                        Client_terminal::move_cursor(client->socket, 0, 0);
+                        std::string message = "You have joined " + room_name + "!\n";
                         Client_terminal::print(client->socket, message);
+
+                        rooms[i]->room_mutex.lock();
+                        rooms[i]->add_player(client);
+                        rooms[i]->room_mutex.unlock();
+                        
+                        for(auto player : rooms[i]->clients){
+                            if(player->username != client->username){
+                                std::string message = client->username + " has joined the game\n";
+                                Client_terminal::print(player->socket, message);
+                                message = player->username + " is in the room\n";
+                                Client_terminal::print(client->socket, message);
+                            }
+                            
+                        }
+                        in_room = true;
+                        break;
                     }
-                    
+                    else{
+                        is_room_full = true;
+                    }
                 }
-                in_room = true;
-                break;
+                else{
+                    is_attempted_room_running = true;
+                }
             }
+
         }
         if(!in_room){
             Client_terminal::clear_screen(client->socket);
             Client_terminal::move_cursor(client->socket, 0, 0);
             std::string message = "Room " + room_name + " not found.\nPress esc or q to exit.\n";
+            if(is_attempted_room_running){
+                message = "Room " + room_name + " is already running a game.\nPress esc or q to exit.\n";
+            }
+            if(is_room_full){
+                message = "Room " + room_name + " is full.\nPress esc or q to exit.\n";
+            }
             Client_terminal::print(client->socket, message);
             char c;
             ssize_t bytes_received;

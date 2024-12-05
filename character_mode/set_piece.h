@@ -13,7 +13,7 @@ class SetPiece {
         int piece_id;
         BoundingBox bounding_box;
         BoundingBox next_bounding_box;
-        std::vector<std::string>& image;
+        std::vector<std::string> image;
         bool is_bold;
         AnsiColor color;
         float x_speed = 0; //set as speed per frame
@@ -47,7 +47,7 @@ class SetPiece {
         int getHeight() { return bounding_box.getHeight(); }
 
         std::vector<std::string>& getImage() { return image; }
-        void setImage(std::vector<std::string>& image) { this->image = image; }
+        void setImage(const std::vector<std::string>& image) { this->image = image; }
         void setBold(bool is_bold) { this->is_bold = is_bold; }
         void setColor(AnsiColor new_color) { this->color = new_color; }
 

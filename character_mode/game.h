@@ -34,7 +34,7 @@ class Game{
         bool is_night_cycle;
         std::vector<Client *> live_clients;
         std::vector<Client *> game_clients;
-        //bool* is_alive;
+        std::vector<bool> is_alive;
         std::vector<SetPiece *> player_pieces;
 
         std::vector<std::string> live_house_art = {
@@ -75,7 +75,7 @@ class Game{
         //void print_menu(const std::vector<std::string>& menu, int selectedRow = 0);
         //int select_from_menu(int client_socket);
         int select_from_menu(int client_socket);
-        int select_target(int client_socket, int client_index);
+        int select_target(int client_socket, int client_index, std::vector<bool> selectable_players);
 
         void start_game(Room * room, sqlite3 * db);
         void stop_game(Room * room);

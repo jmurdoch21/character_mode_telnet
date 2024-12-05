@@ -18,6 +18,7 @@ sqlite3 *db;
 Game uni_werewolf_game;
 std::vector<Room *> rooms;
 std::mutex server_mutex;
+std::vector<Client *> clients;
 
 // Function to enable character mode (and suppress go-ahead)
 void Server::enableCharacterMode(int client_socket) {
@@ -226,8 +227,10 @@ bool Server::authenticate_player(const std::string &username, const std::string 
 bool Server::sign_in(Client * client) {
     std::string username, password;
     bool signed_in = false;
+    bool user_already_signed_in = false;
     while(!signed_in){
     // Registration or Login
+        user_already_signed_in = false;
         bool boo = true;
         std::string action;
         int doing_register = false;
@@ -263,26 +266,44 @@ for(size_t i = 0; i < password.length(); i++) {
     std::cout << "char at " << i << ": " << (int)password[i] << std::endl;
 }         
         std::cout<<"password: "<< password << "check" << std::endl;
-
-        if (doing_register){//action == "register") {
-            if (register_player(client->username, password)) {
-                send_message(client->socket, "Registration successful.\n");
-                signed_in = true;
-                return true;
-            } else {
+        //check if user is already logged in
+        for(auto& client_iter : clients) {
+            if(client->username == client_iter->username){
                 send_message(client->socket, "Username already exists.\n");
+                user_already_signed_in = true;
             }
-        } else {//if (action == "login") {
-            if (authenticate_player(client->username, password)) {
-                send_message(client->socket, "Login successful.\n");
-                signed_in = true;
-                //Database::increment_games_played(db, client->username);
-                return true;
-            } else {
-                send_message(client->socket, "Login failed.\n");
-            }
-        }   
-
+        }
+        std::cout << "user_already_signed_in: " << user_already_signed_in << std::endl;
+        if(!user_already_signed_in){
+            if (doing_register){//action == "register") {
+            //double enter password
+                std::string password2;
+                send_message(client->socket, "Enter password again: ");
+                Server::receive_line(client->socket, password2, ECHO_OFF);
+                if(password != password2){
+                    send_message(client->socket, "Passwords do not match.\n");
+                    continue;
+                }
+                if (register_player(client->username, password)) {
+                    send_message(client->socket, "Registration successful.\n");
+                    signed_in = true;
+                    clients.push_back(client);
+                    return true;
+                } else {
+                    send_message(client->socket, "Username already exists.\n");
+                }
+            } else {//if (action == "login") {
+                if (authenticate_player(client->username, password)) {
+                    send_message(client->socket, "Login successful.\n");
+                    clients.push_back(client);
+                    signed_in = true;
+                    //Database::increment_games_played(db, client->username);
+                    return true;
+                } else {
+                    send_message(client->socket, "Login failed.\n");
+                }
+            }   
+        }
     } 
     return false; 
 }
