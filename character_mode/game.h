@@ -78,6 +78,11 @@ class Game{
         int select_from_menu(int client_socket);
         int select_target(int client_socket, int client_index, std::vector<bool> selectable_players);
 
+        //thread functions to handle each role action
+        // static void Game::handle_werewolf_action(Client* werewolf_client, int werewolf_index, Client* werewolf_target_client, int& werewolf_target_index, std::vector<bool> &is_alive, std::vector<Client*> &game_clients);
+        // static void handle_engineer_action(Client* client);
+        // static void handle_seer_action(Client* client);
+        
         //thread functions to handle defenses and votes
         static void handle_client_defense(Client* client, std::string &list_of_defenses);
         static void handle_client_vote(Client* client, std::string &list_of_defenses, std::vector<int> &votes, int num_remaining_players);
