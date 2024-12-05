@@ -340,6 +340,17 @@ void Game::stats(sqlite3* db, int client_socket, const std::string& username) {
 //         message.clear();
 //     }
 // }
+std::mutex defense_mutex;
+void Game::handle_client_defense(Client* client, std::string &list_of_defenses) {
+    std::string message = client->username + ", state your defense: \n";
+    send(client->socket, message.c_str(), message.size(), 0);
+    std::string defense;
+    Server::receive_line(client->socket, defense, ECHO_ON);
+    defense_mutex.lock();
+    list_of_defenses += client->username + ": " + defense + "\n";
+    defense_mutex.unlock();
+                        
+}
 
 void Game::start_game(Room * room, sqlite3* db) {
     // Implementation needed
@@ -495,13 +506,25 @@ void Game::start_game(Room * room, sqlite3* db) {
                         }
                         last_killed_client = nullptr;
                         std::string list_of_defenses;
-                        for(Client *client : live_clients){
-                            message = client->username + ", state your defense: \n";
-                            send(client->socket, message.c_str(), message.size(), 0);
-                            std::string defense;
-                            Server::receive_line(client->socket, defense, ECHO_ON);
-                            list_of_defenses += client->username + ": " + defense + "\n";
+                        // for(Client *client : live_clients){
+                        //     message = client->username + ", state your defense: \n";
+                        //     send(client->socket, message.c_str(), message.size(), 0);
+                        //     std::string defense;
+                        //     Server::receive_line(client->socket, defense, ECHO_ON);
+                        //     list_of_defenses += client->username + ": " + defense + "\n";
+                        // }
+                        //multithread list of defenses
+                        std::vector<std::thread> defense_threads;   
+                        // Spawn a thread for each client
+                        for (Client* client : live_clients) {
+                            defense_threads.push_back(std::thread(handle_client_defense, client, std::ref(list_of_defenses)));
                         }
+
+                        // Join all threads to ensure they complete before moving forward
+                        for (std::thread& t : defense_threads) {
+                            t.join();
+                        }
+
                         list_of_defenses += "Time to vote! Who do you think is the werewolf?\nEnter the index of the player\n";
                         int count = 1;
                         for(Client *client : live_clients) {
